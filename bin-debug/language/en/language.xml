@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<language type="en_US" name="English - US" version="1.0.0"
+	date="18.3.09" author="benjamin povirk, benjamin.povirk@gmail.com">
+	
+	<buttons>
+		<button id="btn_mute">
+			<label><![CDATA[Utišaj]]></label>
+			<localHelp><![CDATA[Utišaj glasnost]]></localHelp>
+			<toolTip><![CDATA[Utišaj glasnost]]></toolTip>
+		</button>
+		<button id="btn_unmute">
+			<label><![CDATA[Na glas]]></label>
+			<localHelp><![CDATA[Povečaj glasnost]]></localHelp>
+			<toolTip><![CDATA[Na glas]]></toolTip>
+		</button>
+		<button id="btn_stop">
+			<label><![CDATA[Ustavi]]></label>
+			<localHelp><![CDATA[Ustavi igranje]]></localHelp>
+			<toolTip><![CDATA[Ustavi igranje]]></toolTip>
+		</button>
+		<button id="btn_channel_tip">
+			<label><![CDATA[]]>
+			</label>
+			<localHelp><![CDATA[Poveži se s tokom in igraj kanal ]]></localHelp>
+			<toolTip><![CDATA[Klikni in se poveži na ]]></toolTip>
+		</button>
+	</buttons>
+	<textBoxes>
+		<textbox id="txt_register">
+			<text><![CDATA[What about SkyStreamer?
+
+Since we have a long and hard way ahead to build SkyStreamer your best personal multimedia app system, we invite you for a free registration, to connect and make our way more groovy! Don't worry, we will use your data solely to keep you posted on our progress and to help you access new functionalities. Our goal is to connect people in real-time throughout the world, with a help of GPS and soundy music via internet. 
+
+Thanks for gro(o)wing with us :)
+
+]]></text>
+		</textbox>
+	</textBoxes>	
+</language>

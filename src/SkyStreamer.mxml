@@ -1,0 +1,626 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TabbedViewNavigatorApplication xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:s="library://ns.adobe.com/flex/spark" applicationDPI="160" backgroundColor="#000000" initialize="Init(event)">
+	
+	<fx:Style source="SkyStreamer.css"/>
+	
+	<s:ViewNavigator id="sky" width="100%" height="100%" label="" firstView="views.Sky" icon="@Embed('img/sky.png')">
+		<s:titleContent>
+			<s:BusyIndicator symbolColor="#A5D9F8" rotationInterval="50" id="busy1"/>
+			<s:Label id="txt_status1" x="13" width="100%" color="#A5D9F8" fontFamily="_typewriter"
+					 fontSize="11" text="retreiving channels..." textAlign="right"/>
+		</s:titleContent>
+	</s:ViewNavigator>
+	<s:ViewNavigator id="di" label="" width="100%" height="200%" firstView="views.DI" icon="@Embed('img/di.png')">
+		<s:titleContent>
+			<s:BusyIndicator symbolColor="#A5D9F8" rotationInterval="50" id="busy2"/>
+			<s:Label id="txt_status2" x="13" width="100%" color="#A5D9F8" fontFamily="_typewriter"
+					 fontSize="11" text="retreiving channels..." textAlign="right"/>
+		</s:titleContent>
+	</s:ViewNavigator>
+		
+	<s:ViewNavigator id="jazz" label="" width="100%" height="200%" firstView="views.Jazz" icon="@Embed('img/jazz.png')">
+		<s:titleContent>
+			<s:BusyIndicator symbolColor="#A5D9F8" rotationInterval="50" id="busy3"/>
+			<s:Label id="txt_status3" x="13" width="100%" color="#A5D9F8" fontFamily="_typewriter"
+					 fontSize="11" text="retreiving channels..." textAlign="right"/>
+		</s:titleContent>
+	</s:ViewNavigator>
+
+	<s:ViewNavigator id="about" label="" width="100%" height="100%" firstView="views.About" icon="@Embed('img/about.png')">
+		<s:titleContent>
+			<s:BusyIndicator symbolColor="#A5D9F8" rotationInterval="50" id="busy4"/>
+			<s:Label id="txt_status4" x="13" width="100%" color="#A5D9F8" fontFamily="_typewriter"
+					 fontSize="11" text="" textAlign="right"/>
+		</s:titleContent>
+	</s:ViewNavigator>
+	
+	<fx:Declarations>
+		<!-- 
+			SkyStreamer - project started by benjamin.povirk@gmail.com for test project on how AIR works on mobile devices (Android, iOS)
+			IT WORKS! Hopefully someone will play with it :)
+		
+			Code was used and assembled from various sources.
+			CopyLeft unless otherwise noted.
+		-->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import flash.sensors.Geolocation;
+			
+			import mx.collections.ArrayList;
+			import mx.core.FlexGlobals;
+			import mx.events.FlexEvent;
+			import mx.utils.ObjectUtil;
+			
+			import si.skylab.appcore.AppFunctions;
+			import si.skylab.appcore.AppMobileMaster;
+			import si.skylab.appcore.AppVars;
+			import si.skylab.appcore.LanguageParser;
+			import si.skylab.appcore.SingletonObject;
+			import si.skylab.appcore.utils.MessageBox.MessageBox;
+			import si.skylab.appcore.utils.MessageBox.MessageBoxEvent;
+			import si.skylab.radio.SKYConfig;
+			import si.skylab.radio.SKYList;
+			import si.skylab.radio.SKYPlaylistLoader;
+			
+			import spark.components.Button;
+			import spark.components.Group;
+			import spark.components.Scroller;
+			import spark.components.TabbedViewNavigatorApplication;
+			import spark.components.TextArea;
+			import spark.components.TextInput;
+			import spark.components.VGroup;
+			import spark.components.VSlider;
+			import spark.components.View;
+			import spark.events.ViewNavigatorEvent;
+			import spark.filters.GlowFilter;
+			
+			import views.Sky;
+			
+			protected var APP:TabbedViewNavigatorApplication = FlexGlobals.topLevelApplication as TabbedViewNavigatorApplication;
+			
+			private var Lang:LanguageParser;
+			private var currView:View;
+			private var webView:StageWebView = new StageWebView();
+			private var r:Scroller;
+			private var g:Group;
+			private var v:VGroup;
+			private var variables:URLVariables = new URLVariables();
+			public var registration:Object = null; //data about our registered user 
+			private var msgBox:MessageBox;
+			private var cameraActive:Boolean = false;
+			
+			[Bindable]
+			public var IListChannels:ArrayList  = new ArrayList();
+			
+			protected function Init(event:FlexEvent):void
+			{
+				NativeApplication.nativeApplication.addEventListener(Event.DEACTIVATE, onDeactivateApp);
+				//set language
+				Lang = new LanguageParser("en");
+				Lang.addEventListener("Language.Parsed", _initComplete);
+				currView = new Sky();
+				currView.actionBarVisible = true;
+			}
+			
+			protected function _initComplete(evt:Event):void {
+				new AppMobileMaster();
+				NativeApplication.nativeApplication.idleThreshold = 20; //day is MAX
+				NativeApplication.nativeApplication.addEventListener(Event.USER_IDLE, userIdleHandler);
+				NativeApplication.nativeApplication.addEventListener(Event.USER_PRESENT, userActiveHandler);
+				NativeApplication.nativeApplication.addEventListener(InvokeEvent.INVOKE, restoreApplication);
+				NativeApplication.nativeApplication.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+				startSKYRadio(SKYConfig.SKYPlaylist);
+				/* just for text on XMP metadata
+				var pic:XMP_file = new XMP_file(File.desktopDirectory.nativePath+"/52.jpg");
+				if(pic.file.exists){
+					AppFunctions.Log("\t\ttrue");
+					AppFunctions.Log(pic.xmp.dumpObject());
+				}
+				*/
+			}
+			//keys (android)
+			protected function onKeyDown(event:KeyboardEvent):void {
+				if (event.keyCode == Keyboard.BACK) {
+					//event.preventDefault();
+					AppFunctions.Log("Back Pressed, go back \n");
+				} else if (event.keyCode == Keyboard.MENU) {
+					//event.preventDefault();
+					AppFunctions.Log("Menu Pressed, do show menu\n");
+				} else if (event.keyCode == Keyboard.SEARCH) {
+					event.preventDefault();
+					AppFunctions.Log("Search Pressed, do nothing\n");
+				}
+			}			
+			protected function onDeactivateApp(event:Event):void
+			{
+				event.preventDefault();
+				AppFunctions.Log("EXIT is not working properly on iOS...");
+				if (Capabilities.os.indexOf("iPhone OS")!=-1) return;
+				//on camera?
+				if (cameraActive) {
+					cameraActive = false;
+					return;
+				}
+				
+				//ok, cancel alert
+				var wviewShown:Boolean = false;
+				if (webView.stage) {
+					wviewShown = true;
+					webView.dispose();
+				}
+				msgBox = MessageBox.show(MessageBox.MB_YESNO, MessageBox.IC_CLOSE, "Exit SkyStreamer?", "Do you want to quit this application (YES)\nor\nyou want to put in into background (NO)?");
+				msgBox.addEventListener(MessageBoxEvent.MESSAGEBOX_YES, function(e:Event):void{
+					NativeApplication.nativeApplication.exit();
+				});
+				msgBox.addEventListener(MessageBoxEvent.MESSAGEBOX_NO, function(e:Event):void{
+					if (wviewShown)_renderWebView();
+				});
+			}
+			
+			protected function userIdleHandler(evt:Event):void {
+				AppFunctions.Log("userIdleHandler");
+			}
+			
+			protected function userActiveHandler(evt:Event):void {
+				AppFunctions.Log("userActiveHandler");
+			}
+			
+			protected function restoreApplication(evt:Event):void {
+				AppFunctions.Log("restoreApplication");
+			}
+			
+			public function TabselectHandler(event:Event):void
+			{
+				busy1.visible = busy2.visible = busy3.visible = busy4.visible = true;
+//				toggleActionBar("show");	
+				txt_status1.text = txt_status2.text = txt_status3.text = "Loading channel list...";
+				webView.viewPort = null;
+				
+				currView = null;
+				currView = event.currentTarget as View;
+				/*
+				currView.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, function(evt:Event):void{
+					toggleActionBar("",true);
+				},false,0,true);
+				*/
+				AppFunctions.Log("HERE: "+currView.title);
+				currView.name = currView.title;
+				//we do not need to remove anything from stage since this is done automatically in API via popViewController				
+				switch(currView.title) {
+					case "DI":
+						startSKYRadio(SKYConfig.DIPlaylist);
+						break;
+					case "Jazz":
+						startSKYRadio(SKYConfig.JAZZPlaylist);
+						break;
+					case "Sky":
+						startSKYRadio(SKYConfig.SKYPlaylist);
+						break;
+					case "About":
+						AboutSkyStreamer();
+						break;
+					default:
+						startSKYRadio(SKYConfig.SKYPlaylist);
+				}
+			}
+			
+			protected var openBrowser:Boolean = false; 
+			protected var geo:Geolocation = new Geolocation(); 
+			public function _onRegistrationResponse(evt:Event):void {
+				evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+				AppFunctions.Log("_onRegistrationResponse "+ObjectUtil.toString(evt));
+				busy4.visible = false;
+				if (evt.currentTarget.data != null) {
+					var vars:URLVariables = evt.currentTarget.data as URLVariables;
+					if (vars.status == "OK") {
+						AppMobileMaster.SaveData({
+							status:vars.status
+							,user_name:vars.user_name
+							,user_mail:vars.user_mail
+						});
+						//ok alert
+						msgBox = MessageBox.show(MessageBox.MB_OK, MessageBox.IC_HELP, "Success!", "Thanks for showing your support! You will receive the first groove from SkyStreamer in a day or two.");
+						msgBox.addEventListener(MessageBoxEvent.MESSAGEBOX_OK, function(e:Event):void{
+							currView.dispatchEvent(new Event(Event.ADDED_TO_STAGE));
+						});
+					} else {
+						//error alert
+						msgBox = MessageBox.show(MessageBox.MB_OK, MessageBox.IC_HELP, "Invalid data", "Please check your data, then try again.");
+						msgBox.addEventListener(MessageBoxEvent.MESSAGEBOX_OK, function(e:Event):void{
+							//null handler
+						});
+					}
+				}
+			}
+			public function _onRegistrationError(evt:Event):void {
+				evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+				AppFunctions.Log("_onRegistrationError "+ObjectUtil.toString(evt));
+				busy4.visible = false;
+			}
+			private function AboutSkyStreamer():void {
+				busy1.visible = busy2.visible = busy3.visible = busy4.visible = false; 
+//				toggleActionBar("show");	
+				
+				r = new Scroller();
+				r.setStyle("chromeColor",0xA5D9F8);
+				r.percentWidth = r.percentHeight = 100;
+				g = new Group();
+				g.percentWidth = g.percentHeight = 100;
+				if (v) v.removeAllElements();
+				v = new VGroup();
+				v.horizontalAlign = "center";
+				v.percentWidth = v.percentHeight = 100;
+				
+				registration = AppMobileMaster.ReadData();
+				if (registration == null || registration == "") {
+					//register
+					txt_status4.text = "Register your SkyStreamer 4 free";
+					
+					var txt:TextArea = new TextArea();
+					txt.editable = false;
+					txt.width = this.width-10;
+					txt.height = int(this.height*.4);
+					txt.text = AppVars.CurrentLanguage.textBoxes["txt_register"];;
+					txt.setStyle("backgroundColor", 0xffffff);
+					txt.setStyle("fontWeight","normal");
+					txt.setStyle("fontSize",11);
+					v.addElement(txt);
+					
+					var inp1:TextInput = new TextInput();
+					inp1.width = this.width-10;
+					inp1.height = 40;
+					inp1.prompt = "Enter your valid email address";
+					v.addElement(inp1);
+					
+					var inp2:TextInput = new TextInput();
+					inp2.width = this.width-10;
+					inp2.height = 40;
+					inp2.prompt = "Enter your name";
+					v.addElement(inp2);
+					
+					var btn:Button = new Button();
+					btn.height = 40;
+					btn.width = this.width*.8;
+					btn.name = "about";
+					btn.label = "Register a free SkyStreamer account";
+					btn.addEventListener(MouseEvent.CLICK, function(e:Event):void {
+						busy4.visible = true;
+						//check inputs, send to server, show error | save data
+						var url:String = "http://skylab.si/b/skystreamer/register.php";
+						variables = new URLVariables();
+						variables.uaid  = ""+AppMobileMaster.UAID;
+						variables.OS	= ""+Capabilities.os;
+						variables.app	= ""+NativeApplication.nativeApplication.applicationID;
+						variables.email = ""+inp1.text;
+						variables.name  = ""+inp2.text;
+						if (Geolocation.isSupported) {
+							geo.addEventListener(GeolocationEvent.UPDATE, function(e:GeolocationEvent):void {
+								e.currentTarget.removeEventListener(e.type, arguments.callee);
+								variables.latitude  		= ""+e.latitude;
+								variables.longitude  		= ""+e.longitude;
+								variables.altitude  		= ""+e.altitude;
+								variables.verticalAccuracy  = ""+e.verticalAccuracy;
+								variables.horizontalAccuracy= ""+e.horizontalAccuracy;
+								variables.speed  			= ""+e.speed;
+								variables.heading  			= ""+e.heading;
+								variables.timestamp  		= ""+e.timestamp;
+								AppMobileMaster.SendPlainData(url, variables, _onRegistrationResponse, _onRegistrationError);
+							});
+						} else {
+							AppMobileMaster.SendPlainData(url, variables, _onRegistrationResponse, _onRegistrationError);
+						}
+					});
+					v.addElement(btn);
+					
+				} else {
+					//account - we have user here
+					txt_status4.text = "Welcome, SkyStreamer "+registration.user_name;
+					
+					//take image
+					var btn2:Button = new Button();
+					btn2.height = 40;
+					btn2.width = this.width*.8;
+					btn2.name = "upload";
+					btn2.label = "Save camera image";
+					btn2.addEventListener(MouseEvent.CLICK, function(e:Event):void {
+						cameraActive = true;
+						registration = AppMobileMaster.ReadData();						
+						variables = new URLVariables();
+						variables.author= ""+registration.user_mail;
+						variables.email = ""+registration.user_name;
+						if (Geolocation.isSupported) {
+							geo.addEventListener(GeolocationEvent.UPDATE, function(e:GeolocationEvent):void {
+								e.currentTarget.removeEventListener(e.type, arguments.callee);
+								variables.latitude  		= ""+e.latitude;
+								variables.longitude  		= ""+e.longitude;
+								variables.altitude  		= ""+e.altitude;
+								variables.verticalAccuracy  = ""+e.verticalAccuracy;
+								variables.horizontalAccuracy= ""+e.horizontalAccuracy;
+								variables.speed  			= ""+e.speed;
+								variables.heading  			= ""+e.heading;
+								variables.timestamp  		= ""+e.timestamp;
+								new PicUp(variables);	
+							});
+						} else {
+							new PicUp(variables);	
+						}
+					},false,0,true);
+					if( CameraUI.isSupported ) v.addElement(btn2);
+					
+					//clear registration
+					var btn3:Button = new Button();
+					btn3.height = 40;
+					btn3.width = this.width*.8;
+					btn3.name = "delete";
+					btn3.label = "Delete my account";
+					btn3.addEventListener(MouseEvent.CLICK, function(e:Event):void {
+						AppMobileMaster.SaveData(null);
+						currView.dispatchEvent(new Event(Event.ADDED_TO_STAGE));
+					});
+					v.addElement(btn3);
+					
+					v.validateNow();
+					_renderWebView();
+				}
+				g.addElement(v);
+				r.viewport = g;
+				currView.addElement(r);
+			}
+			private function _renderWebView():void {
+				if (!StageWebView.isSupported) return;
+				
+				webView = new StageWebView()
+				webView.stage = currView.stage;
+				webView.viewPort = new Rectangle(0,300,FlexGlobals.topLevelApplication.stage.width,FlexGlobals.topLevelApplication.stage.height-410);
+				webView.addEventListener(LocationChangeEvent.LOCATION_CHANGE, onURLChange);    
+				webView.loadURL("http://skylab.si/b/skystreamer/register?act=show&uaid="+AppMobileMaster.UAID);    
+				webView.addEventListener(ViewNavigatorEvent.REMOVING, function(e:Event):void {
+					AppFunctions.Log("webView.dispose();");
+					webView.dispose();
+					webView = null;
+					e.currentTarget.removeEventListener(e.type, arguments.callee);
+				});
+			}
+			protected function onURLChange(event:LocationChangeEvent):void {
+				AppFunctions.Log("URL change");
+				// Uncomment the following line to load in the default browser instead... 
+				//navigateToURL(new URLRequest(event.location));
+			}			
+			//---------- BEGIN: SKYRadio implementation ----------//		
+			/**
+			 * SKYRadio implementation
+			 */
+			private var list:si.skylab.radio.SKYList;	
+			private var Radio:SKYPlayer; 
+			private var btns:Array = [];	
+			private var playlistLoader:SKYPlaylistLoader;
+			private const outline:GlowFilter = new GlowFilter(0xA5D9F8,1.0,6,6,4,10);
+			private const btn_stop:Button = new Button();
+			private const btn_mute:Button = new Button();
+			private const sld_volume:VSlider = new VSlider();
+			
+			private function startSKYRadio(sourcelist:Array):void {
+				list = new SKYList(sourcelist, "?uaid="+AppMobileMaster.UAID);
+				list.addEventListener("SKYList.COMPLETE", SKYListsCompleted);
+				list.addEventListener("SKYList.ERROR", function(e:Event):void {
+					e.currentTarget.removeEventListener(e.type, arguments.callee);
+					busy1.visible = busy2.visible = busy3.visible = busy4.visible = false;	
+//					toggleActionBar("show",true);	
+					txt_status1.text = txt_status2.text = txt_status3.text = "Error. Please check your connection.";
+				});
+				
+			}
+			private function _SKYMute(evt:Event):void {
+				Radio = SingletonObject.getInstance(SKYPlayer) as SKYPlayer;
+				if (btn_mute.label==AppVars.CurrentLanguage.buttons["btn_mute.label"]) {
+					if (AppVars.LocalHelp) {
+//						ControlBar.LocalHelp(AppVars.CurrentLanguage.buttons["btn_mute.localHelp"]);
+						return;
+					}
+					Radio.Mute();
+					btn_mute.label 		= AppVars.CurrentLanguage.buttons["btn_unmute.label"];
+					btn_mute.setStyle("state", "down");
+					btn_mute.filters	= [outline]; 
+				} else {
+					if (AppVars.LocalHelp) {
+//						ControlBar.LocalHelp(AppVars.CurrentLanguage.buttons["btn_unmute.localHelp"]);
+						return;
+					}
+					Radio.UnMute();
+					btn_mute.label		= AppVars.CurrentLanguage.buttons["btn_mute.label"];
+					btn_mute.setStyle("state", "up");
+					btn_mute.filters	= []; 
+				}
+			}
+			private function _SKYStop(evt:Event=null):void {
+				AppFunctions.Log("_SKYStop");
+				if (AppVars.LocalHelp) {
+					return;
+				}
+				txt_status1.text = txt_status2.text = txt_status3.text = "Select a channel to play";
+				busy1.visible = busy2.visible = busy3.visible = busy4.visible = false; 
+//				toggleActionBar("show",true);	
+				
+				Radio = SingletonObject.getInstance(SKYPlayer) as SKYPlayer;
+				Radio.Stop();
+				btn_mute.label		= AppVars.CurrentLanguage.buttons["btn_mute.label"];
+				btn_mute.setStyle("state", "up");
+				btn_mute.filters	= []; 
+				for each(var b:Button in btns) {
+					b.setStyle("state", "up");
+					b.filters	= [];
+				}
+			}
+			private function _SKYVolume(evt:Event=null):void {
+				SKYPlayer.currentVolume = sld_volume.value; 
+				Radio = SingletonObject.getInstance(SKYPlayer) as SKYPlayer;
+				if (!Radio.trans) return;
+				Radio.trans.volume = SKYPlayer.currentVolume/100;
+				AppFunctions.Log(Radio.trans.volume);
+				if (Radio.song != null) {
+					Radio.song.soundTransform = Radio.trans;
+				}
+			}		
+			
+			/**
+			 * we have gained all the playlists we can, create buttons
+			 */ 
+			private function SKYListsCompleted(evt:Event):void {
+				evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+				busy1.visible = busy2.visible = busy3.visible = busy4.visible = false; 
+				if (!SKYPlayer.isPlaying) {
+					txt_status1.text = txt_status2.text = txt_status3.text = "Select a channel to play";
+				} 
+//				toggleActionBar("show");	
+				IListChannels.source = []; 
+				
+				r = new Scroller();
+				r.setStyle("chromeColor",0xA5D9F8);
+				r.percentWidth = r.percentHeight = 100;
+				g = new Group();
+
+				var channels:Object = list.Channels;
+				var lists:Array 	= channels.lists;
+				var names:Array 	= channels.names;
+				
+				var _btnw:int 	= int(this.width*.5)-5;
+				var _btnh:int 	= 40;
+				var x:int 		= 5;
+				var y:int 		= 5;
+				var s:int 		= this.width;
+				
+				for (var i:int=0; i<lists.length; i++) {
+					if ((x+_btnw)>(s)) {
+						x=5;
+						y+=_btnh+2;
+					}
+					
+					var btn:Button 	= new Button();
+					btn.setStyle("state", "up");
+					btn.addEventListener(MouseEvent.CLICK, _ChannelClickHandler);
+					
+					btn.toolTip = AppVars.CurrentLanguage.buttons["btn_channel_tip.toolTip"]+names[i];
+					btn.height 	= _btnh;
+					btn.width 	= _btnw;
+					btn.name	= lists[i];
+					btn.label	= names[i];
+					btn.id		= currView.title;
+					
+					btn.x = x;
+					btn.y = y;
+					btns.push(btn);
+					//currView.addElement(btn);
+					g.addElement(btn);
+					
+					x+=_btnw+1;
+					
+					IListChannels.source = IListChannels.source.concat({name:lists[i],label:names[i]}); 
+				}
+				r.viewport = g;
+				currView.addElement(r);
+				
+				//if radio is playing, try to select proper channel
+				if (SKYPlayer.isPlaying) {
+					for each(var b:Button in btns) {
+						b.setStyle("state", "up");
+						if (b.name == SKYPlayer.currentChannel && SKYPlayer.isPlaying) {
+							b.setStyle("state", "down");
+							b.filters	= [outline]; 
+							txt_status1.text = txt_status2.text = txt_status3.text = "Playing stream "+b.label+" @ "+String(b.id).toUpperCase();
+//							toggleActionBar("hide",false,2600);
+						}
+					}
+				}
+			}
+			
+			public function _ChannelClickHandler(evt:Event):void {
+				if (AppVars.LocalHelp) {
+//					ControlBar.LocalHelp(AppVars.CurrentLanguage.buttons["btn_channel_tip.localHelp"]+evt.currentTarget.label);
+					return;
+				}
+				busy1.visible = busy2.visible = busy3.visible = busy4.visible = true;
+//				toggleActionBar("show");
+				var cb:Object = evt.currentTarget as Object;
+				if (SKYPlayer.isPlaying && cb.name == SKYPlayer.currentChannel) {
+					return _SKYStop();
+				}
+				AppFunctions.Log("_ChannelClickHandler: "+evt.currentTarget.name);
+				//parse playlist
+				txt_status1.text = txt_status2.text = txt_status3.text = "Connecting "+cb.label;
+				playlistLoader = new SKYPlaylistLoader(cb.name);
+				//show loading...
+				playlistLoader.addEventListener("SKYPlaylistLoader.COMPLETE", function(evt:Event):void {
+					evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+					//de-select
+					for each(var b:Button in btns) {
+						b.setStyle("state", "up");
+						b.filters = [];
+					}
+					cb.setStyle("state", "down");
+					cb.filters = [outline];
+					
+					//play selected
+					Radio = SingletonObject.getInstance(SKYPlayer) as SKYPlayer;
+					Radio.addEventListener("SKYPlayer.PLAYING", function(evt:Event):void {
+						evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+						txt_status1.text = txt_status2.text = txt_status3.text = "Playing stream "+cb.label+" @ "+String(cb.id).toUpperCase();
+						busy1.visible = busy2.visible = busy3.visible = busy4.visible = false;
+//						toggleActionBar("hide");
+					});
+					Radio.Play(playlistLoader.Urls, cb.name, cb.label);
+					Radio.UnMute();
+					btn_mute.label		= AppVars.CurrentLanguage.buttons["btn_mute.label"];
+					btn_mute.setStyle("state", "up");
+					btn_mute.filters	= []; 
+				});
+			}
+			//---------- FINISH: SKYRadio implementation ----------//
+			
+			private var t:Timer = new Timer(1000);
+			protected function toggleActionBar(setShow:String="",toggleImmediatelly:Boolean=false,delay:int=1600):void {
+				if (toggleImmediatelly) {
+					t.stop();
+					if (setShow=="") {
+						if (currView.actionBarVisible) {
+							_hideActionBar();
+						} else {
+							_showActionBar();
+						}
+					} else {
+						if (setShow=="show"||setShow=="true") {
+							_showActionBar();
+						} else {
+							_hideActionBar();
+						}
+					}
+				} else {
+					t  new Timer(delay);
+					if (setShow=="") {
+						if (currView.actionBarVisible) {
+							t.addEventListener(TimerEvent.TIMER, _hideActionBar);
+						} else {
+							t.addEventListener(TimerEvent.TIMER, _showActionBar);
+						}
+					} else {
+						if (setShow=="show"||setShow=="true") {
+							t.addEventListener(TimerEvent.TIMER, _showActionBar);
+						} else {
+							t.addEventListener(TimerEvent.TIMER, _hideActionBar);
+						}
+					}
+					t.start();
+				}
+			}
+			private function _showActionBar(evt:Event=null):void {
+				if (evt!=null) evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+				currView.actionBarVisible = true;	
+			}
+			private function _hideActionBar(evt:Event=null):void {
+				if (evt!=null) evt.currentTarget.removeEventListener(evt.type, arguments.callee);
+				currView.actionBarVisible = false;	
+			}
+		]]>
+	</fx:Script>
+</s:TabbedViewNavigatorApplication>

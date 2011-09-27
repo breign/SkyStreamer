@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer x="0" y="0" width="{thewidth}" height="{theheight}" 
+					  backgroundColor="#000000" backgroundAlpha=".75"
+					  xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					  xmlns:s="library://ns.adobe.com/flex/spark" 
+					  xmlns:components="spark.components.*">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" verticalAlign="middle"/>
+	</s:layout>
+	<s:states>
+		<s:State name="ST_OK"/>
+		<s:State name="ST_OKCANCEL"/>
+		<s:State name="ST_YESNO"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import mx.core.FlexGlobals;
+			import mx.managers.ISystemManager;
+			import mx.managers.PopUpManager;
+			
+			public static const MB_OK:String		= "ST_OK";
+			public static const MB_OKCANCEL:String	= "ST_OKCANCEL";
+			public static const MB_YESNO:String		= "ST_YESNO";
+			
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_add.png")]
+			public static const IC_ADD:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_alert.png")]
+			public static const IC_ALERT:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_cancel.png")]
+			public static const IC_CANCEL:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_clear.png")]
+			public static const IC_CLEAR:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_close.png")]
+			public static const IC_CLOSE:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_delete.png")]
+			public static const IC_DELETE:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_edit.png")]
+			public static const IC_EDIT:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_help.png")]
+			public static const IC_HELP:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_info.png")]
+			public static const IC_INFO:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_more.png")]
+			public static const IC_MORE:Class;
+			[Embed(source="si/skylab/appcore/utils/MessageBox/ic_save.png")]
+			public static const IC_SAVE:Class;
+			
+			[Bindable]
+			private var thewidth:Number = FlexGlobals.topLevelApplication.width;
+			[Bindable]
+			private var theheight:Number = FlexGlobals.topLevelApplication.height;
+			
+			[Bindable]
+			private var _type:String	= MB_OK;
+			
+			[Bindable]
+			public var prompt:String	= "";
+			[Bindable]
+			public var promptOK:Boolean = false;
+			
+			public function get inputData():String
+			{
+				return input.text;
+			}
+			
+			[Bindable]
+			public function get type():String
+			{
+				return _type;
+			}
+			
+			public function set type(newType:String):void 
+			{
+				if (newType == MB_OK)			{	_type	= MB_OK;		}
+				else if (newType== MB_OKCANCEL)	{	_type	= MB_OKCANCEL;	}
+				else if (newType== MB_YESNO)	{	_type	= MB_YESNO;		}
+				
+				currentState	= _type;
+			}
+			
+			[Bindable]
+			public var icon:Class		= IC_INFO;
+			
+			[Bindable]
+			public var title:String 	= "Information";
+			
+			[Bindable]
+			public var message:String	= "Default Message";
+			
+			public static function show(type:String, icon:Class, title:String, message:String, prompt:String="", parent:DisplayObject = null):MessageBox {
+				var msgBox:MessageBox = new MessageBox();
+				
+				msgBox.type     = type;
+				msgBox.icon     = icon;
+				msgBox.title    = title;
+				msgBox.message  = message;
+				msgBox.prompt	= prompt;
+				
+				if (!parent)
+				{
+					var sm:ISystemManager = ISystemManager(FlexGlobals.topLevelApplication.systemManager);
+					// no types so no dependencies
+					var mp:Object = sm.getImplementation("mx.managers.IMarshallPlanSystemManager");
+					if (mp && mp.useSWFBridge())
+						parent = Sprite(sm.getSandboxRoot());
+					else
+					parent = Sprite(FlexGlobals.topLevelApplication);
+				}
+				
+				PopUpManager.addPopUp(msgBox, parent, true);
+				PopUpManager.centerPopUp(msgBox);
+				
+				return msgBox;
+			}
+			
+			protected function okayBtn_clickHandler(event:MouseEvent):void
+			{
+				var dpe:MessageBoxEvent = new MessageBoxEvent(MessageBoxEvent.MESSAGEBOX_OK);
+				dispatchEvent(dpe);
+				if (prompt) {
+					if (promptOK) PopUpManager.removePopUp(this);
+				} else Close();
+			}
+			
+			protected function cancelBtn_clickHandler(event:MouseEvent):void
+			{
+				var dpe:MessageBoxEvent = new MessageBoxEvent(MessageBoxEvent.MESSAGEBOX_CANCEL);
+				dispatchEvent(dpe);
+				Close();
+			}
+			
+			protected function yesBtn_clickHandler(event:MouseEvent):void
+			{
+				var dpe:MessageBoxEvent = new MessageBoxEvent(MessageBoxEvent.MESSAGEBOX_YES);
+				dispatchEvent(dpe);
+				Close();
+			}
+			
+			protected function noBtn_clickHandler(event:MouseEvent):void
+			{
+				var dpe:MessageBoxEvent = new MessageBoxEvent(MessageBoxEvent.MESSAGEBOX_NO);
+				dispatchEvent(dpe);
+				Close();
+			}
+			public function Close():void {
+				PopUpManager.removePopUp(this);
+			}
+		]]>
+	</fx:Script>
+	
+	<s:BorderContainer id="alert" backgroundColor="0x222222" width="90%" maxWidth="{thewidth-40}" maxHeight="{theheight-40}" borderColor="0xffffff" borderWeight="3" cornerRadius="10" color="#ffffff">
+		<s:VGroup width="100%">
+			<s:HGroup width="100%" gap="0" paddingBottom="1" paddingLeft="1" paddingRight="1" paddingTop="1">
+				<s:Image source="{this.icon}" />
+				<s:Label width="100%" fontSize="16" paddingTop="12" text="{this.title}"/>
+			</s:HGroup>
+			<s:Line width="100%">
+				<s:stroke>
+					<s:SolidColorStroke color="0x5b5b5b" weight="1"/>
+				</s:stroke>
+			</s:Line>
+			<s:Label maxDisplayedLines="6" maxHeight="300" width="100%" fontSize="14" fontWeight="normal" paddingTop="12" paddingBottom="12" paddingLeft="15" paddingRight="15" text="{this.message}"/>
+			<s:HGroup width="100%" gap="0" paddingBottom="1" paddingLeft="1" paddingRight="1" paddingTop="1" horizontalAlign="center">
+				<s:TextInput color="0x000000" width="95%" height="50" fontSize="14" id="input" prompt="{this.prompt}" visible="{this.prompt}" includeInLayout="{this.prompt}" />
+			</s:HGroup>
+			<s:Group width="100%" height="100">
+				<s:HGroup bottom="0" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle" paddingLeft="10" paddingRight="10">
+					<s:Button id="okayBtn" width.ST_OK="100%" width.ST_OKCANCEL="50%" height="50" label="OK" includeIn="ST_OK,ST_OKCANCEL"
+							  fontSize="16" fontFamily="_sans" chromeColor="#ECECEC" click="okayBtn_clickHandler(event)" color="#000000" fontWeight="bold" />
+					<s:Button id="cancelBtn" width="50%" height="50" label="Cancel" includeIn="ST_OKCANCEL"
+							  fontSize="16" fontFamily="_sans" chromeColor="#ECECEC" click="cancelBtn_clickHandler(event)" color="#000000" fontWeight="bold" />
+					<s:Button id="yesBtn" width="50%" height="50" label="Yes" includeIn="ST_YESNO"
+							  fontSize="16" fontFamily="_sans" chromeColor="#ECECEC" click="yesBtn_clickHandler(event)" color="#000000" fontWeight="bold" />
+					<s:Button id="noBtn" width="50%" height="50" label="No" includeIn="ST_YESNO"
+							  fontSize="16" fontFamily="_sans" chromeColor="#ECECEC" click="noBtn_clickHandler(event)" color="#000000" fontWeight="bold" />
+				</s:HGroup>
+			</s:Group>
+		</s:VGroup>
+	</s:BorderContainer>
+</s:SkinnableContainer>
